@@ -3,7 +3,7 @@
 
 uint8 svid            # Satellite ID
 
-uint8 svFlag          # Information Flags
+uint8 sv_flag          # Information Flags
 uint8 FLAG_URA_MASK = 15      # Figure of Merit (URA) range 0..15
 uint8 FLAG_HEALTHY = 16       # SV healthy flag
 uint8 FLAG_EPH_VAL = 32       # Ephemeris valid
