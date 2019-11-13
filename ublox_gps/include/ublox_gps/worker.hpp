@@ -14,9 +14,9 @@
 //       endorse or promote products derived from this software without
 //       specific prior written permission.
 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
 // ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
 // DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
 // (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -26,11 +26,11 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //==============================================================================
 
-#ifndef UBLOX_GPS_WORKER_H
-#define UBLOX_GPS_WORKER_H
+#ifndef UBLOX_GPS_WORKER_HPP
+#define UBLOX_GPS_WORKER_HPP
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/function.hpp>
+#include <chrono>
+#include <functional>
 
 namespace ublox_gps {
 
@@ -39,7 +39,7 @@ namespace ublox_gps {
  */
 class Worker {
  public:
-  typedef boost::function<void(unsigned char*, std::size_t&)> Callback;
+  typedef std::function<void(unsigned char*, std::size_t&)> Callback;
   virtual ~Worker() {}
 
   /**
@@ -60,12 +60,12 @@ class Worker {
    * @param size the size of the buffer
    */
   virtual bool send(const unsigned char* data, const unsigned int size) = 0;
-  
+
   /**
    * @brief Wait for an incoming message.
    * @param timeout the maximum time to wait.
    */
-  virtual void wait(const boost::posix_time::time_duration& timeout) = 0;
+  virtual void wait(const std::chrono::milliseconds& timeout) = 0;
 
   /**
    * @brief Whether or not the I/O stream is open.
@@ -75,4 +75,4 @@ class Worker {
 
 }  // namespace ublox_gps
 
-#endif  // UBLOX_GPS_WORKER_H
+#endif  // UBLOX_GPS_WORKER_HPP

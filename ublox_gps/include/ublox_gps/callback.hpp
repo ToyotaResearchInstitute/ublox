@@ -14,9 +14,9 @@
 //       endorse or promote products derived from this software without
 //       specific prior written permission.
 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
 // ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
 // DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
 // (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
@@ -26,14 +26,17 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //==============================================================================
 
-#ifndef UBLOX_GPS_CALLBACK_H
-#define UBLOX_GPS_CALLBACK_H
+#ifndef UBLOX_GPS_CALLBACK_HPP
+#define UBLOX_GPS_CALLBACK_HPP
 
-#include <ros/console.h>
-#include <ublox/serialization/ublox_msgs.h>
-#include <boost/format.hpp>
-#include <boost/function.hpp>
-#include <boost/thread.hpp>
+#include <chrono>
+#include <condition_variable>
+#include <functional>
+#include <map>
+#include <mutex>
+#include <stdexcept>
+
+#include <ublox/serialization/ublox_msgs.hpp>
 
 namespace ublox_gps {
 
@@ -50,14 +53,14 @@ class CallbackHandler {
   /**
    * @brief Wait for on the condition.
    */
-  bool wait(const boost::posix_time::time_duration& timeout) {
-    boost::mutex::scoped_lock lock(mutex_);
-    return condition_.timed_wait(lock, timeout);
+  bool wait(const std::chrono::milliseconds& timeout) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    return condition_.wait_for(lock, timeout) == std::cv_status::no_timeout;
   }
 
  protected:
-  boost::mutex mutex_; //!< Lock for the handler
-  boost::condition_variable condition_; //!< Condition for the handler lock
+  std::mutex mutex_; //!< Lock for the handler
+  std::condition_variable condition_; //!< Condition for the handler lock
 };
 
 /**
@@ -67,14 +70,14 @@ class CallbackHandler {
 template <typename T>
 class CallbackHandler_ : public CallbackHandler {
  public:
-  typedef boost::function<void(const T&)> Callback; //!< A callback function
+  typedef std::function<void(const T&)> Callback; //!< A callback function
 
-  /** 
+  /**
    * @brief Initialize the Callback Handler with a callback function
    * @param func a callback function for the message, defaults to none
    */
   CallbackHandler_(const Callback& func = Callback()) : func_(func) {}
-  
+
   /**
    * @brief Get the last received message.
    */
@@ -85,31 +88,33 @@ class CallbackHandler_ : public CallbackHandler {
    * @param reader a reader to decode the message buffer
    */
   void handle(ublox::Reader& reader) {
-    boost::mutex::scoped_lock lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     try {
       if (!reader.read<T>(message_)) {
-        ROS_DEBUG_COND(debug >= 2, 
-                       "U-Blox Decoder error for 0x%02x / 0x%02x (%d bytes)", 
-                       static_cast<unsigned int>(reader.classId()),
-                       static_cast<unsigned int>(reader.messageId()),
-                       reader.length());
+        // ROS_DEBUG_COND(debug >= 2,
+        //                "U-Blox Decoder error for 0x%02x / 0x%02x (%d bytes)",
+        //                static_cast<unsigned int>(reader.classId()),
+        //                static_cast<unsigned int>(reader.messageId()),
+        //                reader.length());
         condition_.notify_all();
         return;
       }
-    } catch (std::runtime_error& e) {
-      ROS_DEBUG_COND(debug >= 2, 
-                     "U-Blox Decoder error for 0x%02x / 0x%02x (%d bytes)", 
-                     static_cast<unsigned int>(reader.classId()),
-                     static_cast<unsigned int>(reader.messageId()),
-                     reader.length());
+    } catch (const std::runtime_error& e) {
+      // ROS_DEBUG_COND(debug >= 2,
+      //                "U-Blox Decoder error for 0x%02x / 0x%02x (%d bytes)",
+      //                static_cast<unsigned int>(reader.classId()),
+      //                static_cast<unsigned int>(reader.messageId()),
+      //                reader.length());
       condition_.notify_all();
       return;
     }
 
-    if (func_) func_(message_);
+    if (func_) {
+      func_(message_);
+    }
     condition_.notify_all();
   }
-  
+
  private:
   Callback func_; //!< the callback function to handle the message
   T message_; //!< The last received message
@@ -127,15 +132,15 @@ class CallbackHandlers {
    */
   template <typename T>
   void insert(typename CallbackHandler_<T>::Callback callback) {
-    boost::mutex::scoped_lock lock(callback_mutex_);
+    std::lock_guard<std::mutex> lock(callback_mutex_);
     CallbackHandler_<T>* handler = new CallbackHandler_<T>(callback);
     callbacks_.insert(
       std::make_pair(std::make_pair(T::CLASS_ID, T::MESSAGE_ID),
-                     boost::shared_ptr<CallbackHandler>(handler)));
+                     std::shared_ptr<CallbackHandler>(handler)));
   }
 
   /**
-   * @brief Add a callback handler for the given message type and ID. This is 
+   * @brief Add a callback handler for the given message type and ID. This is
    * used for messages in which have the same structure (and therefore msg file)
    * and same class ID but different message IDs. (e.g. INF, ACK)
    * @param callback the callback handler for the message
@@ -144,13 +149,13 @@ class CallbackHandlers {
    */
   template <typename T>
   void insert(
-      typename CallbackHandler_<T>::Callback callback, 
+      typename CallbackHandler_<T>::Callback callback,
       unsigned int message_id) {
-    boost::mutex::scoped_lock lock(callback_mutex_);
+    std::lock_guard<std::mutex> lock(callback_mutex_);
     CallbackHandler_<T>* handler = new CallbackHandler_<T>(callback);
     callbacks_.insert(
       std::make_pair(std::make_pair(T::CLASS_ID, message_id),
-                     boost::shared_ptr<CallbackHandler>(handler)));
+                     std::shared_ptr<CallbackHandler>(handler)));
   }
 
   /**
@@ -159,12 +164,13 @@ class CallbackHandlers {
    */
   void handle(ublox::Reader& reader) {
     // Find the callback handlers for the message & decode it
-    boost::mutex::scoped_lock lock(callback_mutex_);
+    std::lock_guard<std::mutex> lock(callback_mutex_);
     Callbacks::key_type key =
         std::make_pair(reader.classId(), reader.messageId());
     for (Callbacks::iterator callback = callbacks_.lower_bound(key);
-         callback != callbacks_.upper_bound(key); ++callback)
+         callback != callbacks_.upper_bound(key); ++callback) {
       callback->second->handle(reader);
+    }
   }
 
   /**
@@ -173,14 +179,14 @@ class CallbackHandlers {
    * @param timeout the amount of time to wait for the desired message
    */
   template <typename T>
-  bool read(T& message, const boost::posix_time::time_duration& timeout) {
+  bool read(T& message, const std::chrono::milliseconds& timeout) {
     bool result = false;
     // Create a callback handler for this message
     callback_mutex_.lock();
     CallbackHandler_<T>* handler = new CallbackHandler_<T>();
     Callbacks::iterator callback = callbacks_.insert(
       (std::make_pair(std::make_pair(T::CLASS_ID, T::MESSAGE_ID),
-                      boost::shared_ptr<CallbackHandler>(handler))));
+                      std::shared_ptr<CallbackHandler>(handler))));
     callback_mutex_.unlock();
 
     // Wait for the message
@@ -188,7 +194,7 @@ class CallbackHandlers {
       message = handler->get();
       result = true;
     }
-    
+
     // Remove the callback handler
     callback_mutex_.lock();
     callbacks_.erase(callback);
@@ -206,15 +212,15 @@ class CallbackHandlers {
     ublox::Reader reader(data, size);
     // Read all U-Blox messages in buffer
     while (reader.search() != reader.end() && reader.found()) {
-      if (debug >= 3) {
-        // Print the received bytes
-        std::ostringstream oss;
-        for (ublox::Reader::iterator it = reader.pos();
-             it != reader.pos() + reader.length() + 8; ++it)
-          oss << boost::format("%02x") % static_cast<unsigned int>(*it) << " ";
-        ROS_DEBUG("U-blox: reading %d bytes\n%s", reader.length() + 8, 
-                 oss.str().c_str());
-      }
+      // if (debug >= 3) {
+      //   // Print the received bytes
+      //   std::ostringstream oss;
+      //   for (ublox::Reader::iterator it = reader.pos();
+      //        it != reader.pos() + reader.length() + 8; ++it)
+      //     oss << boost::format("%02x") % static_cast<unsigned int>(*it) << " ";
+      //   ROS_DEBUG("U-blox: reading %d bytes\n%s", reader.length() + 8,
+      //            oss.str().c_str());
+      // }
 
       handle(reader);
     }
@@ -226,13 +232,13 @@ class CallbackHandlers {
 
  private:
   typedef std::multimap<std::pair<uint8_t, uint8_t>,
-                        boost::shared_ptr<CallbackHandler> > Callbacks;
+                        std::shared_ptr<CallbackHandler> > Callbacks;
 
   // Call back handlers for u-blox messages
   Callbacks callbacks_;
-  boost::mutex callback_mutex_;
+  std::mutex callback_mutex_;
 };
 
 }  // namespace ublox_gps
 
-#endif  // UBLOX_GPS_CALLBACK_H
+#endif  // UBLOX_GPS_CALLBACK_HPP

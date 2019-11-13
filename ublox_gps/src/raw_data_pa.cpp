@@ -32,20 +32,23 @@
 // the data as ros messages. This is used by our group to also evaluate the
 // measured data with the rtklib.
 
-#include "ublox_gps/raw_data_pa.h"
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <sstream>
+#include <stdexcept>
+
+#include "ublox_gps/raw_data_pa.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <time.h>
 
-using namespace ublox_node;
+//
+// ublox_gps namespace
+//
 
-//
-// ublox_node namespace
-//
+namespace ublox_gps {
 
 RawDataStreamPa::RawDataStreamPa(bool is_ros_subscriber) :
   pnh_(ros::NodeHandle("~")),
@@ -77,24 +80,24 @@ bool RawDataStreamPa::isEnabled() {
 void RawDataStreamPa::initialize() {
 
     if (is_ros_subscriber_) {
-        ROS_INFO("Subscribing to raw data stream.");
+        // ROS_INFO("Subscribing to raw data stream.");
         static ros::Subscriber subscriber =
           nh_.subscribe ("raw_data_stream", 100,
             &RawDataStreamPa::msgCallback, this);
     } else if (flag_publish_) {
-        ROS_INFO("Publishing raw data stream.");
+        // ROS_INFO("Publishing raw data stream.");
         RawDataStreamPa::publishMsg(std::string());
     }
 
     if (!file_dir_.empty()) {
         struct stat stat_info;
         if (stat(file_dir_.c_str(), &stat_info ) != 0) {
-            ROS_ERROR("Can't log raw data to file. "
-              "Directory \"%s\" does not exist.", file_dir_.c_str());
+            // ROS_ERROR("Can't log raw data to file. "
+            //   "Directory \"%s\" does not exist.", file_dir_.c_str());
 
         } else if ((stat_info.st_mode & S_IFDIR) != S_IFDIR) {
-            ROS_ERROR("Can't log raw data to file. "
-              "\"%s\" exists, but is not a directory.", file_dir_.c_str());
+            // ROS_ERROR("Can't log raw data to file. "
+            //   "\"%s\" exists, but is not a directory.", file_dir_.c_str());
 
         } else {
             if (file_dir_.back() != '/') {
@@ -123,11 +126,11 @@ void RawDataStreamPa::initialize() {
 
             try {
                 file_handle_.open(file_name_);
-                ROS_INFO("Logging raw data to file \"%s\"",
-                  file_name_.c_str());
+                // ROS_INFO("Logging raw data to file \"%s\"",
+                //   file_name_.c_str());
             } catch(const std::exception& e) {
-                ROS_ERROR("Can't log raw data to file. "
-                  "Can't create file \"%s\".", file_name_.c_str());
+                // ROS_ERROR("Can't log raw data to file. "
+                //   "Can't create file \"%s\".", file_name_.c_str());
             }
         }
     }
@@ -146,17 +149,17 @@ void RawDataStreamPa::ubloxCallback(const unsigned char* data,
 }
 
 void RawDataStreamPa::msgCallback(
-  const std_msgs::UInt8MultiArray::ConstPtr& msg) {
+  const std_msgs::msg::UInt8MultiArray::ConstPtr& msg) {
 
     std::string str(msg->data.size(), ' ');
     std::copy(msg->data.begin(), msg->data.end(), str.begin());
     saveToFile(str);
 }
 
-std_msgs::UInt8MultiArray RawDataStreamPa::str2uint8(
+std_msgs::msg::UInt8MultiArray RawDataStreamPa::str2uint8(
  const std::string str) {
 
-    std_msgs::UInt8MultiArray msg;
+    std_msgs::msg::UInt8MultiArray msg;
 
     msg.layout.data_offset = 0;
     msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
@@ -185,8 +188,9 @@ void RawDataStreamPa::saveToFile(const std::string str) {
             file_handle_ << str;
             // file_handle_.flush();
         } catch(const std::exception& e) {
-            ROS_WARN("Error writing to file \"%s\"", file_name_.c_str());
+            // ROS_WARN("Error writing to file \"%s\"", file_name_.c_str());
         }
     }
 }
 
+}

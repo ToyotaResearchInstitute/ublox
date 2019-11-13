@@ -33,33 +33,31 @@
 // measured data with the rtklib.
 
 
-#ifndef UBLOX_RAW_DATA_PA_H
-#define UBLOX_RAW_DATA_PA_H
+#ifndef UBLOX_GPS_RAW_DATA_PA_HPP
+#define UBLOX_GPS_RAW_DATA_PA_HPP
 
 // STL
-#include <vector>
-#include <set>
 #include <fstream>
+#include <string>
 
 // ROS includes
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 
 // ROS messages
-#include <std_msgs/UInt8MultiArray.h>
+#include <std_msgs/msg/uint8_multi_array.hpp>
 
 /**
- * @namespace ublox_node
+ * @namespace ublox_gps
  * This namespace is for the ROS u-blox node and handles anything regarding
  * ROS parameters, message passing, diagnostics, etc.
  */
-namespace ublox_node {
+namespace ublox_gps {
 
 /**
  * @brief Implements functions for raw data stream.
  */
-class RawDataStreamPa {
+class RawDataStreamPa final {
   public:
-
 
     /**
      * @brief Constructor.
@@ -70,12 +68,12 @@ class RawDataStreamPa {
     /**
      * @brief Get the raw data stream parameters.
      */
-    void getRosParams(void);
+    void getRosParams();
 
     /**
      * @brief Returns the if raw data streaming is enabled.
      */
-    bool isEnabled(void);
+    bool isEnabled();
 
     /**
      * @brief Initializes raw data streams
@@ -84,7 +82,7 @@ class RawDataStreamPa {
      * If publishing ros messages is enabled, an empty msg will be published.
      * (This will implicitly create the publisher)
      */
-    void initialize(void);
+    void initialize();
 
     /**
      * @brief Callback function which handles raw data.
@@ -98,13 +96,13 @@ class RawDataStreamPa {
      * @brief Callback function which handles raw data.
      * @param msg ros message
      */
-    void msgCallback(const std_msgs::UInt8MultiArray::ConstPtr& msg);
+    void msgCallback(const std_msgs::msg::UInt8MultiArray::ConstPtr& msg);
 
   private:
     /**
      * @brief Converts a string into an uint8 multibyte array
      */
-    std_msgs::UInt8MultiArray str2uint8(const std::string str);
+    std_msgs::msg::UInt8MultiArray str2uint8(const std::string str);
 
     /**
      * @brief Publishes data stream as ros message
@@ -133,12 +131,10 @@ class RawDataStreamPa {
     //! false: publishing ros messages and/or storing to file
     bool is_ros_subscriber_;
 
-    //! ROS private node handle (for params and publisher)
-    ros::NodeHandle pnh_;
     //! ROS node handle (only for subscriber)
-    ros::NodeHandle nh_;
+    rclcpp::Node nh_;
 };
 
-}
+}  // namespace ublox_gps
 
 #endif

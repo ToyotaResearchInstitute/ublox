@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package format='2'>
+<package format="2">
   <name>ublox_gps</name>
   <version>1.1.2</version>
   <description>
@@ -12,13 +12,18 @@
   <license>BSD</license>
   <url>http://ros.org/wiki/ublox</url>
 
-  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>ublox_serialization</depend>
-  <depend>ublox_msgs</depend>
-  <depend>roscpp</depend>
-  <depend>roscpp_serialization</depend>
-  <depend>tf</depend>
+  <depend>asio</depend>
   <depend>diagnostic_updater</depend>
+  <depend>geometry_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>ublox_msgs</depend>
+  <depend>ublox_serialization</depend>
 
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>
